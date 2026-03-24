@@ -55,6 +55,7 @@ export interface NodeData extends Record<string, unknown> {
   label: string
   deviceType: DeviceType
   ip: string
+  wanIp: string
   subnet: string
   gateway: string
   mac: string

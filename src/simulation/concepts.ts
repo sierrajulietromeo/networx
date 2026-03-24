@@ -136,7 +136,14 @@ Try \`nslookup\` in any terminal node to see DNS queries!`,
 
 **Default gateway** – the 0.0.0.0/0 route, used when no specific route matches. Packets go here if the router doesn't know where else to send them.
 
-A home router connects your LAN (192.168.x.x) to your ISP's WAN.`,
+A home router connects your LAN (192.168.x.x) to your ISP's WAN.
+
+**Multiple interfaces**
+A router has a separate IP address on each interface:
+- **eth0 (WAN)** — faces the ISP or upstream network (e.g. 82.1.2.3), visible to the internet
+- **eth1 (LAN)** — the address home devices use as their default gateway (e.g. 192.168.1.1), visible only internally
+
+You can see both by connecting with \`ssh 192.168.1.1\` and running \`ipconfig\` or \`ifconfig\`. This is also why NAT works: outgoing packets have their source IP rewritten from the private LAN address to the public WAN IP.`,
   },
   {
     id: 'domestic-gateway',

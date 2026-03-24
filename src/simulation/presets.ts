@@ -18,6 +18,7 @@ function node(
       label,
       deviceType,
       ip,
+      wanIp: '',
       subnet: ['switch', 'hub', 'cloud'].includes(deviceType) ? '' : '255.255.255.0',
       gateway: ['switch', 'hub', 'cloud', 'router', 'gateway'].includes(deviceType) ? '' : ip.replace(/\.\d+$/, '.1'),
       mac: mac(`aa:bb:cc:dd:${id.slice(-2).padStart(2, '0')}:01`),
@@ -96,7 +97,8 @@ const homeNetwork: Preset = {
     node('cloud1',   'cloud',    'Internet',       '0.0.0.0',       { x: 20,  y: 230 },
       { notes: 'Represents your ISP and the public internet.' }),
     node('gw1',      'gateway',  'Home Gateway',   '192.168.1.1',   { x: 240, y: 230 },
-      { routingTable: [
+      { wanIp: '82.1.2.3',
+        routingTable: [
           { destination: '0.0.0.0',     subnet: '0.0.0.0',       gateway: '0.0.0.0', iface: 'eth0', metric: 0 },
           { destination: '192.168.1.0', subnet: '255.255.255.0', gateway: '0.0.0.0', iface: 'eth1', metric: 0 },
         ],
@@ -140,7 +142,8 @@ const schoolNetwork: Preset = {
           { id: 'r4', direction: 'in', protocol: 'ANY', srcIp: '*', dstIp: '*', port: '*',   action: 'deny'  },
         ] }),
     node('router1', 'router',   'Core Router',    '192.168.0.1',    { x: 390, y: 330 },
-      { routingTable: [
+      { wanIp: '10.0.0.2',
+        routingTable: [
           { destination: '0.0.0.0',     subnet: '0.0.0.0',       gateway: '10.0.0.1',    iface: 'eth0', metric: 0 },
           { destination: '192.168.0.0', subnet: '255.255.255.0', gateway: '0.0.0.0',     iface: 'eth1', metric: 0 },
         ],
@@ -220,19 +223,19 @@ const meshNetwork: Preset = {
     node('cloud1',   'cloud',  'Internet',       '0.0.0.0',       { x: 320, y: 30  }),
     // Site A
     node('routerA',  'router', 'Router A',       '10.1.0.1',      { x: 80,  y: 200 },
-      { notes: 'Site A gateway. Connected to Site B and C routers, and to the internet.' }),
+      { wanIp: '172.16.0.1', notes: 'Site A gateway. Connected to Site B and C routers, and to the internet.' }),
     node('swA',      'switch', 'Switch A',       '',              { x: 80,  y: 360 }),
     node('pcA1',     'pc',     'PC A1',          '10.1.0.11',     { x: -80, y: 460 }),
     node('pcA2',     'pc',     'PC A2',          '10.1.0.12',     { x: 80,  y: 480 }),
     // Site B
     node('routerB',  'router', 'Router B',       '10.2.0.1',      { x: 320, y: 200 },
-      { notes: 'Site B gateway — central hub. Connected to all other routers.' }),
+      { wanIp: '172.16.0.2', notes: 'Site B gateway — central hub. Connected to all other routers.' }),
     node('swB',      'switch', 'Switch B',       '',              { x: 320, y: 360 }),
     node('srvB',     'server', 'Server B',       '10.2.0.10',     { x: 220, y: 480 }),
     node('pcB1',     'pc',     'PC B1',          '10.2.0.11',     { x: 420, y: 480 }),
     // Site C
     node('routerC',  'router', 'Router C',       '10.3.0.1',      { x: 560, y: 200 },
-      { notes: 'Site C gateway. Multiple paths to reach other sites — demonstrates redundancy.' }),
+      { wanIp: '172.16.0.3', notes: 'Site C gateway. Multiple paths to reach other sites — demonstrates redundancy.' }),
     node('swC',      'switch', 'Switch C',       '',              { x: 560, y: 360 }),
     node('pcC1',     'pc',     'PC C1',          '10.3.0.11',     { x: 460, y: 480 }),
     node('pcC2',     'pc',     'PC C2',          '10.3.0.12',     { x: 660, y: 480 }),

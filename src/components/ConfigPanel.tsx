@@ -78,6 +78,7 @@ export default function ConfigPanel({ nodeId, onClose }: Props) {
   const hasIp = !(isSwitch || isHub)
 
   const advanced = atLeast(level, 'ks4')
+  const ks5 = atLeast(level, 'ks5')
 
   const TABS = [
     { id: 'basic',    label: 'Basic' },
@@ -139,7 +140,10 @@ export default function ConfigPanel({ nodeId, onClose }: Props) {
             <Field label="Label" value={data.label} onChange={(v) => upd({ label: v })} />
             {hasIp && (
               <>
-                <Field label="IP Address" value={data.ip} onChange={(v) => upd({ ip: v })} placeholder="192.168.1.x" mono />
+                {(isRouter || isGateway) && ks5 && (
+                  <Field label="WAN IP — eth0 (ISP-facing)" value={(data.wanIp as string) ?? ''} onChange={(v) => upd({ wanIp: v })} placeholder="e.g. 82.1.2.3" mono />
+                )}
+                <Field label={(isRouter || isGateway) && ks5 ? 'LAN IP — eth1 (network-facing)' : 'IP Address'} value={data.ip} onChange={(v) => upd({ ip: v })} placeholder="192.168.1.x" mono />
                 {advanced && (
                   <>
                     <Field label="Subnet Mask" value={data.subnet} onChange={(v) => upd({ subnet: v })} placeholder="255.255.255.0" mono />
@@ -199,6 +203,13 @@ export default function ConfigPanel({ nodeId, onClose }: Props) {
 
         {tab === 'advanced' && (isRouter || isGateway) && (
           <div>
+            {ks5 && (data.wanIp || data.ip) && (
+              <div className="mb-3 text-xs text-gray-400 font-mono bg-gray-50 rounded px-2.5 py-2 border border-gray-100">
+                eth0 (WAN) = {(data.wanIp as string) || '(not set)'}
+                {'  ·  '}
+                eth1 (LAN) = {data.ip || '(not set)'}
+              </div>
+            )}
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-700">Routing Table</h3>
               <button

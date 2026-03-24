@@ -263,10 +263,13 @@ function cmdTraceroute(args: string[], ctx: TermContext): Lines {
     let hopNum = 1
 
     // Local hops to the cloud/internet node
+    const WAN_SIDE_TYPES = ['router', 'gateway', 'cloud', 'firewall']
     if (cloudPath && cloudPath.length > 1) {
       cloudPath.slice(1).forEach((nodeId, i) => {
         const node = nodeById(nodeId, ctx.nodes)
-        const ip = node?.data.ip || node?.data.label || '*'
+        const prevNode = nodeById(cloudPath[i], ctx.nodes)
+        const fromWan = WAN_SIDE_TYPES.includes(prevNode?.data.deviceType ?? '')
+        const ip = (fromWan && node?.data.wanIp) ? node.data.wanIp : (node?.data.ip || node?.data.label || '*')
         const label = node?.data.label ?? ''
         const rtt = simulatePingRtt(i + 1)
         lines.push(out(` ${hopNum}  ${ip} (${label})  ${rtt} ms  ${rtt + 1} ms  ${rtt} ms`))
@@ -296,10 +299,13 @@ function cmdTraceroute(args: string[], ctx: TermContext): Lines {
   populateMacTables(path, ctx)
   ctx.dispatchPackets?.(makePackets(path, ctx.edges, 'ICMP', 'ICMP'))
 
+  const WAN_SIDE_TYPES = ['router', 'gateway', 'cloud', 'firewall']
   const lines: Lines = [out(`traceroute to ${target} (${target}), 30 hops max, 60 byte packets`)]
   path.slice(1).forEach((nodeId, i) => {
     const node = nodeById(nodeId, ctx.nodes)
-    const ip = node?.data.ip ?? '*'
+    const prevNode = nodeById(path[i], ctx.nodes)
+    const fromWan = WAN_SIDE_TYPES.includes(prevNode?.data.deviceType ?? '')
+    const ip = (fromWan && node?.data.wanIp) ? node.data.wanIp : (node?.data.ip ?? '*')
     const label = node?.data.label ?? ''
     const rtt = simulatePingRtt(i + 1)
     lines.push(out(` ${i + 1}  ${ip} (${label})  ${rtt} ms  ${rtt + 1} ms  ${rtt} ms`))
@@ -310,8 +316,22 @@ function cmdTraceroute(args: string[], ctx: TermContext): Lines {
 function cmdIpconfig(args: string[], ctx: TermContext): Lines {
   if (args[0] === '/renew') return cmdDhclient([], ctx)
   const node = self(ctx)
-  const { ip, subnet, gateway, mac } = node.data
+  const { ip, wanIp, subnet, gateway, mac } = node.data
   const cidr = subnet ? subnetToCidr(subnet) : 24
+  const isRouterType = node.data.deviceType === 'router' || node.data.deviceType === 'gateway'
+  if (isRouterType && wanIp) {
+    return [
+      out(`Ethernet adapter eth0 (WAN):`),
+      out(`   IPv4 Address . . . . : ${wanIp}`),
+      out(`   Subnet Mask  . . . . : 255.255.255.252 (/30)`),
+      out(`   Default Gateway  . . : (ISP)`),
+      out(''),
+      out(`Ethernet adapter eth1 (LAN):`),
+      out(`   IPv4 Address . . . . : ${ip || '(not set)'}`),
+      out(`   Subnet Mask  . . . . : ${subnet || '255.255.255.0'} (/${cidr})`),
+      out(`   Physical Address . . : ${mac}`),
+    ]
+  }
   return [
     out(`Ethernet adapter ${node.data.label}:`),
     out(`   IPv4 Address . . . . : ${ip || '(not set)'}`),
@@ -323,8 +343,21 @@ function cmdIpconfig(args: string[], ctx: TermContext): Lines {
 
 function cmdIfconfig(_args: string[], ctx: TermContext): Lines {
   const node = self(ctx)
-  const { ip, subnet, gateway, mac } = node.data
+  const { ip, wanIp, subnet, gateway, mac } = node.data
   const cidr = subnet ? subnetToCidr(subnet) : 24
+  const isRouterType = node.data.deviceType === 'router' || node.data.deviceType === 'gateway'
+  if (isRouterType && wanIp) {
+    return [
+      out(`eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500`),
+      out(`        inet ${wanIp}  netmask 255.255.255.252  broadcast ${wanIp.replace(/\d+$/, '255')}`),
+      out(`        ether ${mac}  txqueuelen 1000  (Ethernet)  [WAN]`),
+      out(''),
+      out(`eth1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500`),
+      out(`        inet ${ip || '0.0.0.0'}  netmask ${subnet || '255.255.255.0'}  broadcast ${ip?.replace(/\d+$/, '255') ?? ''}`),
+      out(`        ether ${mac}  txqueuelen 1000  (Ethernet)  [LAN]`),
+      out(`        Gateway: ${gateway || '(ISP)'} (/${cidr})`),
+    ]
+  }
   return [
     out(`eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500`),
     out(`        inet ${ip || '0.0.0.0'}  netmask ${subnet || '255.255.255.0'}  broadcast ${ip?.replace(/\d+$/, '255') ?? ''}`),
@@ -531,7 +564,7 @@ function cmdSsh(args: string[], ctx: TermContext): Lines {
   if (!target) return [err('Usage: ssh <ip-address>')]
   const dst = nodeByIp(target, ctx.nodes)
   if (!dst) return [err(`ssh: connect to host ${target}: No route to host`)]
-  if (!['pc', 'laptop', 'server', 'web', 'dns'].includes(dst.data.deviceType)) {
+  if (!['pc', 'laptop', 'server', 'web', 'dns', 'router', 'gateway'].includes(dst.data.deviceType)) {
     return [err(`ssh: connect to host ${target}: Connection refused`)]
   }
   const path = findPath(self(ctx).id, dst.id, ctx.nodes, ctx.edges)
@@ -645,7 +678,7 @@ function cmdHelp(ctx: TermContext): Lines {
       out('  netstat            – Show active connections'),
       out('  route              – Show routing table'),
       out('  curl <url>         – Make HTTP request'),
-      out('  ssh <ip>           – Connect to remote host (exit to quit)'),
+      out('  ssh <ip>           – Connect to remote host or router (exit to quit)'),
       out('  dhclient           – Request IP from DHCP server'),
       out('  ipconfig /renew    – Same as dhclient (Windows style)'),
     )

@@ -34,6 +34,7 @@ export function makeDefaultData(type: DeviceType, id: string): NodeData {
     label: `${DEVICE_LABELS[type]} ${id.split('-')[1]}`,
     deviceType: type,
     ip: '',
+    wanIp: '',
     subnet: '255.255.255.0',
     gateway: '192.168.1.1',
     mac: randomMac(),
