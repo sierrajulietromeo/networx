@@ -16,12 +16,19 @@ export interface TermContext {
 const HOP_MS = 500
 
 export function edgesOnPath(nodeIds: string[], edges: NetEdge[]): string[] {
+  return segmentsOnPath(nodeIds, edges).map(({ edgeId }) => edgeId)
+}
+
+function segmentsOnPath(
+  nodeIds: string[],
+  edges: NetEdge[],
+): Array<{ edgeId: string; reverse: boolean }> {
   return nodeIds.slice(0, -1).flatMap((nid, i) => {
     const next = nodeIds[i + 1]
     const e = edges.find(
       (e) => (e.source === nid && e.target === next) || (e.source === next && e.target === nid),
     )
-    return e ? [e.id] : []
+    return e ? [{ edgeId: e.id, reverse: e.source !== nid }] : []
   })
 }
 
@@ -32,24 +39,25 @@ export function makePackets(
   label: string,
   withReply = false,
 ): PacketAnim[] {
-  const eids = edgesOnPath(nodeIds, allEdges)
-  const N = eids.length
+  const segments = segmentsOnPath(nodeIds, allEdges)
+  const N = segments.length
   const ts = Date.now()
-  const forward: PacketAnim[] = eids.map((edgeId, i) => ({
+  const forward: PacketAnim[] = segments.map(({ edgeId, reverse }, i) => ({
     id: `pkt-${ts}-f${i}`,
     edgeId, protocol, label,
     delayMs: i * HOP_MS,
     durationMs: HOP_MS,
+    reverse,
   }))
   if (!withReply) return forward
   const replyLabel = protocol === 'ICMP' ? 'reply' : `${label} ↩`
-  const reply: PacketAnim[] = [...eids].reverse().map((edgeId, i) => ({
+  const reply: PacketAnim[] = [...segments].reverse().map(({ edgeId, reverse }, i) => ({
     id: `pkt-${ts}-r${i}`,
     edgeId, protocol,
     label: replyLabel,
     delayMs: (N + i) * HOP_MS,
     durationMs: HOP_MS,
-    reverse: true,
+    reverse: !reverse,
   }))
   return [...forward, ...reply]
 }
